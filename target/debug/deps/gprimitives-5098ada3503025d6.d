@@ -1,0 +1,10 @@
+C:\Users\dgv31\OneDrive\Documents\Universidad\Semestre 6\Graficas\raycasting\Raycasting\target\debug\deps\libgprimitives-5098ada3503025d6.rmeta: C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src/lib.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\macros.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\nonzero_u256.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\utils.rs
+
+C:\Users\dgv31\OneDrive\Documents\Universidad\Semestre 6\Graficas\raycasting\Raycasting\target\debug\deps\libgprimitives-5098ada3503025d6.rlib: C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src/lib.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\macros.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\nonzero_u256.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\utils.rs
+
+C:\Users\dgv31\OneDrive\Documents\Universidad\Semestre 6\Graficas\raycasting\Raycasting\target\debug\deps\gprimitives-5098ada3503025d6.d: C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src/lib.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\macros.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\nonzero_u256.rs C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\utils.rs
+
+C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src/lib.rs:
+C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\macros.rs:
+C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\nonzero_u256.rs:
+C:\Users\dgv31\.cargo\registry\src\index.crates.io-6f17d22bba15001f\gprimitives-1.5.0\src\utils.rs:
