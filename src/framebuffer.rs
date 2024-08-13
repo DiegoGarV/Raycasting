@@ -1,49 +1,74 @@
+use crate::bm::write_bmp_file;
 use crate::color::Color;
 
 pub struct Framebuffer {
     pub width: usize,
     pub height: usize,
-    pub buffer: Vec<Color>,
-    pub background_color: Color,
-    pub current_color: Color,
+    pub buffer: Vec<u32>,
+    background_color: u32,
+    current_color: u32,
+    line_color: u32,
 }
 
 impl Framebuffer {
     pub fn new(width: usize, height: usize) -> Framebuffer {
-        // Crear colores predeterminados para el fondo y el color actual
-        let background_color = Color::from_hex("Black", 0x000000);
-        let current_color = Color::from_hex("White", 0xFFFFFF);
-
-        // Inicializar el buffer con el color de fondo
-        let buffer = vec![background_color.clone(); width * height];
-
+        let buffer = vec![0; width * height];
+        let cells = vec![false; width * height]; // Inicializar las células como muertas
         Framebuffer {
             width,
             height,
             buffer,
-            background_color,
-            current_color,
+            background_color: 0xFFFFFF, // Color de fondo predeterminado (negro)
+            current_color: 0x000000, // Color de dibujo predeterminado (blanco)
+            line_color: 0xFFFFFF, // Color de línea predeterminado (blanco)
+          
         }
     }
 
+  
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    pub fn set_background_color(&mut self, color: u32) {
+        self.background_color = color;
+    }
+
+    
     pub fn clear(&mut self) {
         for pixel in self.buffer.iter_mut() {
-            *pixel = self.background_color.clone();
+            *pixel = self.background_color;
         }
     }
 
-    pub fn point(&mut self, x: isize, y: isize) {
-        if x >= 0 && y >= 0 && (x as usize) < self.width && (y as usize) < self.height {
-            let index = (y as usize) * self.width + (x as usize);
-            self.buffer[index] = self.current_color.clone();
-        }
-    }
-
-    pub fn set_current_color(&mut self, color: Color) {
+    pub fn set_current_color(&mut self, color: u32) {
         self.current_color = color;
     }
 
-    pub fn to_u32_buffer(&self) -> Vec<u32> {
-        self.buffer.iter().map(|color| color.to_u32()).collect()
+    pub fn set_line_color(&mut self, color: u32) {
+        self.line_color = color;
+    }
+    
+    pub fn point(&mut self, x: usize, y: usize, color: u32) {
+        if x < self.width && y < self.height {
+            let inverted_y = self.height - 1 - y;
+            self.buffer[inverted_y * self.width + x] = color;
+        }
+    }
+
+    pub fn render_buffer(&self, file_path: &str) -> std::io::Result<()> {
+        let buffer: Vec<Color> = self.buffer.iter()
+            .map(|&color_value| {
+                let red = ((color_value >> 16) & 0xFF) as u8;
+                let green = ((color_value >> 8) & 0xFF) as u8;
+                let blue = (color_value & 0xFF) as u8;
+                Color::new(red, green, blue)
+            })
+            .collect();
+        write_bmp_file(file_path, &buffer, self.width, self.height)
     }
 }

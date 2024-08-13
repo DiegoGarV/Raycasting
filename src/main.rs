@@ -5,32 +5,37 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 
 mod framebuffer;
+mod bm;
 mod color;
 mod maze;
 mod player; 
-mod cast_ray; 
+mod caster; 
 mod texture; 
 
 use std::time::{Duration, Instant};
 use framebuffer::Framebuffer;
 use player::{procces, Player};
 use maze::load_maze;
-use cast_ray::{cast_ray, Intersect};
+use caster::{cast_ray, Intersect};
 use texture::Texture; 
 
-static WALL1: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("./assets/DarkWall_S.jpg")));
+static WALL1: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("./assets/wallTile1.png")));
+
 
 fn cell_to_texture_color(cell: char, tx: u32, ty:u32)-> u32{
     let default_color = 0x000000;
-    return WALL1.get_pixel_color(tx,ty)   
+    return WALL1.get_pixel_color(tx,ty)
+    
 }
+
+
 
 // recibe donde va a estar, el tamaño de los cuadrados y para ponerle diferentes colores una celda
 fn drawcell(framebuffer: &mut Framebuffer, xo: usize, yo: usize, block_size: usize, cell: char){
     for x in xo..xo + block_size{
         for y in yo..yo + block_size{
             if cell != ' '{    
-                framebuffer.point(x as isize, y as isize);
+                framebuffer.point(x,y,0x000000);
             }
         }
     }
@@ -44,15 +49,12 @@ fn render_2d_player(framebuffer: &mut Framebuffer, player: &Player, block_size: 
 
     for y in player_y..(player_y + player_size) {
         for x in player_x..(player_x + player_size) {
-            framebuffer.point(x as isize, y as isize);
+            framebuffer.point(x, y, 0xFFFFA500);
         }
     }
 }
 
-fn render_2d(framebuffer: &mut Framebuffer, player: &Player) {
-    let maze = load_maze("./map.txt");
-    let block_size = 35;
-
+fn render2d(framebuffer: &mut Framebuffer, player: &Player, maze: &Vec<Vec<char>>, block_size: usize) {
     // for de dos dimensiones
     for row in 0..maze.len(){
         for col in 0..maze[row].len(){
@@ -60,7 +62,7 @@ fn render_2d(framebuffer: &mut Framebuffer, player: &Player) {
         }
     }
 
-    render_2d_player(framebuffer, player, 5);
+    render_2d_player(framebuffer, player, block_size / 10);
 
     let num_rayos = 5; 
     for i in 0..num_rayos{ 
@@ -70,10 +72,8 @@ fn render_2d(framebuffer: &mut Framebuffer, player: &Player) {
     }
 }
 
-fn render_3d(framebuffer: &mut Framebuffer, player: &Player){
-    let maze = load_maze("./map.txt");
+fn render3d(framebuffer: &mut Framebuffer, player: &Player, maze: &Vec<Vec<char>>, block_size: usize){
     let num_rayos = framebuffer.width; 
-    let block_size = 35; 
 
     let hh = framebuffer.height as f32/ 2.0;
 
@@ -83,41 +83,54 @@ fn render_3d(framebuffer: &mut Framebuffer, player: &Player){
         let intersect = cast_ray(framebuffer, &maze, player, a, block_size, false);
 
         let stake_heigth = (framebuffer.height as f32 / intersect.distance) * 60.0; 
-
         let stake_top = (hh - (stake_heigth / 2.0 )) as usize;
         let stake_bottom = (hh + (stake_heigth / 2.0 )) as usize;
 
+        let tx = (intersect.tx as f32 / block_size as f32 * WALL1.width as f32) as u32;
+        let texture_height = WALL1.height as f32;
+        let texture_width = WALL1.width as f32;
+
         for y in stake_top..stake_bottom{
-            framebuffer.point(i as isize, y as isize);
+            let ty = ((y as f32 - (hh - (stake_heigth / 2.0))) / stake_heigth * texture_height) as u32;
+            let color = cell_to_texture_color(intersect.impact, tx, ty);
+            framebuffer.point(i, y, color);
         }
     }
 
 }
 
 fn main() {
-    let window_width = 1300;
-    let window_height = 900;
+    // Cargar el mapa
+    let maze = load_maze("./map.txt");
 
-    let framebuffer_width = 1300;
-    let framebuffer_height = 900;
+    // Definir un block_size fijo
+    let block_size = 40;
+
+    // Calcular las dimensiones del framebuffer basadas en el tamaño del mapa y el block_size
+    let framebuffer_width = maze[0].len() * block_size;
+    let framebuffer_height = maze.len() * block_size;
 
     let frame_delay = Duration::from_millis(1);
 
     let mut framebuffer = framebuffer::Framebuffer::new(framebuffer_width, framebuffer_height);
     let mut window = Window::new(
-        "MAZE GAME",
-        window_width,
-        window_height,
+        "Maze Game",
+        framebuffer_width,
+        framebuffer_height,
         WindowOptions::default(),
     ).unwrap();
+
+    // Oculta el cursor
+    window.set_cursor_visibility(false);
 
     let mut player1 = Player{
         pos: Vec2::new(100.0, 100.0),
         a: PI/3.0,
         fov: PI/3.0, 
+        prev_mouse_x: None,
     };
 
-    let mut mode = "2D";
+    let mut mode = "3D";
     
     let mut last_time = Instant::now();
     let mut frame_count = 0;
@@ -128,6 +141,9 @@ fn main() {
         let current_time = Instant::now();
         let duration = current_time.duration_since(last_time);
 
+        // Centra el cursor
+        let (window_width, window_height) = window.get_size();
+
         if window.is_key_down(Key::Escape) {
             break;
         }
@@ -135,18 +151,20 @@ fn main() {
         if window.is_key_down(Key::M){
             mode = if mode == "2D" {"3D"} else {"2D"};
         }
-        procces(&mut window, &mut player1); // para los controles y movimiento 
 
-       
+        if mode == "3D" {
+            // Movimiento del personaje
+            procces(&mut window, &mut player1, &maze, block_size);
+        }
 
         framebuffer.clear();
 
+        // Renderiza el juego
         if mode == "2D"{
-            render_2d(&mut framebuffer, &mut player1);
+            render2d(&mut framebuffer, &mut player1, &maze, block_size);
         }
         else{
-             // Incrementar el contador de frames
-             render_3d(&mut framebuffer, &mut player1);
+            render3d(&mut framebuffer, &mut player1, &maze, block_size);
              
         }
             
@@ -161,13 +179,12 @@ fn main() {
         }
 
         window
-            .update_with_buffer(
-                &framebuffer.buffer.iter().map(|color| color.to_u32()).collect::<Vec<u32>>(),
-                framebuffer_width,
-                framebuffer_height
-            )
+            .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
             .unwrap();
 
         std::thread::sleep(frame_delay);
     }
+
+    
+
 }
