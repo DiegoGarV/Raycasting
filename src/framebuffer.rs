@@ -26,6 +26,12 @@ impl Framebuffer {
         }
     }
 
+    pub fn clear(&mut self) {
+        for pixel in self.buffer.iter_mut() {
+            *pixel = self.background_color.clone();
+        }
+    }
+
     pub fn point(&mut self, x: isize, y: isize) {
         if x >= 0 && y >= 0 && (x as usize) < self.width && (y as usize) < self.height {
             let index = (y as usize) * self.width + (x as usize);

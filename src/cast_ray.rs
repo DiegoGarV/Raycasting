@@ -1,35 +1,47 @@
-use crate::framebuffer::Framebuffer;
+use crate::framebuffer::Framebuffer; 
 use crate::player::Player;
-use crate::color::Color;
+
+
+pub struct Intersect{
+    pub distance: f32, 
+    pub impact: char,
+    pub tx: usize,
+}
 
 pub fn cast_ray(
-    framebuffer: &mut Framebuffer,
-    map: &Vec<Vec<char>>,
-    player: &Player,
-    a: f32,
-    block_size: usize,
-) {
-    let mut d= 0.0;
+    framebuffer: &mut Framebuffer, 
+    maze: &Vec<Vec<char>>, 
+    player: &Player, 
+    a: f32, 
+    block_size: usize, 
+    draw_line: bool, 
+) -> Intersect { 
+    let mut d = 0.0;
+    loop{ 
+        let cos = d* a.cos();
+        let sin = d* a.sin();
 
-    framebuffer.set_current_color(Color::from_hex("ray", 0xFFF333));
-
-    loop {
-        let cos = d * a.cos();
-        let sin = d * a.sin();
-        let x = (player.pos.x + cos) as usize;
+        let x = (player.pos.x + cos) as usize; 
         let y = (player.pos.y + sin) as usize;
 
-        // coordinates in pixels to indices in the maze
-        let i = x / block_size;
-        let j = y / block_size;
+        let i = x / block_size; 
+        let j = y / block_size; 
 
-        // if wall breaks loop
-        if map[j][i] != ' ' {
-            return;
+        let tx = x - i * block_size; 
+        
+        if draw_line{
+            framebuffer.point(x as isize, y as isize);
         }
 
-        framebuffer.point(x as isize, y as isize);
+        if maze[j][i] != ' ' {
+            return Intersect{
+                distance:d, 
+                impact: maze[j][i],
+                tx: tx,
+            }
+        }
 
-        d += 0.1;
+
+        d += 1.0; 
     }
 }
