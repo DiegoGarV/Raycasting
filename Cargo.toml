@@ -1,12 +1,9 @@
 [package]
-name = "raycasting"
+name = "graph_laberinto"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bmp = "0.5.0"
 minifb = "0.27.0"
 nalgebra-glm = "0.19.0"
-fs = "0.0.5"
-image = "0.25.2"
-io = "0.0.2"
-once_cell = "1.10"

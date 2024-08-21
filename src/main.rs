@@ -1,190 +1,197 @@
 use minifb::{Key, Window, WindowOptions};
-use nalgebra_glm::{Vec2};
-use std::f32::consts::PI;
-use std::sync::Arc;
-use once_cell::sync::Lazy;
+use nalgebra_glm::Vec2;
+use core::f32::consts::PI;
+use framebuffer::Framebuffer;
+use loader::load_maze;
+use player::{process_event, Player};
+use ray_caster::cast_ray;
+use std::time::{ Instant,Duration};
 
 mod framebuffer;
-mod bm;
 mod color;
-mod maze;
-mod player; 
-mod caster; 
-mod texture; 
+mod loader;
+mod player;
+mod ray_caster;
+mod fps;
+mod sprite_loader;
 
-use std::time::{Duration, Instant};
-use framebuffer::Framebuffer;
-use player::{procces, Player};
-use maze::load_maze;
-use caster::{cast_ray, Intersect};
-use texture::Texture; 
+struct Goal{
+    pos: Vec2,
+    sprite: sprite_loader::Sprite,
+}
 
-static WALL1: Lazy<Arc<Texture>> = Lazy::new(|| Arc::new(Texture::new("./assets/wallTile1.png")));
+impl Goal{
+    fn new(pos:Vec2, sprite:sprite_loader::Sprite) -> Self{
+        Goal{
+            pos,
+            sprite,
+        }
+    }
+}
 
-
-fn cell_to_texture_color(cell: char, tx: u32, ty:u32)-> u32{
-    let default_color = 0x000000;
-    return WALL1.get_pixel_color(tx,ty)
+fn draw_player_view(
+    framebuffer: &mut Framebuffer,
+    maze: &Vec<Vec<char>>,
+    player: &mut Player,
+    block_size: usize,
+    scale: usize,
+    goal: &Goal
+){
+    framebuffer.clear();
+    framebuffer.set_current_color(0x008dfc);
+    sprite_loader::draw_block(framebuffer, player.pos.x as usize-block_size/12 ,player.pos.y as usize-block_size/12, block_size/6);
+    framebuffer.set_current_color(0xffffff);
+    sprite_loader::render2d(framebuffer, maze, scale, player,false);
+    let num_rays = 3;
     
+    for i in 0..num_rays{
+        let current_ray = i as f32/ num_rays as f32;
+        let a = player.a -(player.fov/2.0)+(player.fov*current_ray);
+        cast_ray(framebuffer, maze, player, a, block_size, true, &goal);
+    }
 }
 
-
-
-// recibe donde va a estar, el tamaño de los cuadrados y para ponerle diferentes colores una celda
-fn drawcell(framebuffer: &mut Framebuffer, xo: usize, yo: usize, block_size: usize, cell: char){
-    for x in xo..xo + block_size{
-        for y in yo..yo + block_size{
-            if cell != ' '{    
-                framebuffer.point(x,y,0x000000);
-            }
+fn draw_minimap(
+    framebuffer: &mut Framebuffer,
+    maze: &Vec<Vec<char>>,
+    player: &mut Player,
+    block_size: usize,
+    scale: usize,
+){
+    framebuffer.set_current_color(0x000000);
+    for x in 0..maze.len()*scale{
+        for y in 0..maze[0].len()*scale{
+            framebuffer.point(x, y);
         }
     }
-
+    framebuffer.set_current_color(0x008dfc);
+    sprite_loader::draw_block(framebuffer, 
+        (player.pos.x*scale as f32/block_size as f32) as usize -block_size/24 ,
+        (player.pos.y*scale as f32/block_size as f32) as usize -block_size/24,
+        block_size/12);
+    framebuffer.set_current_color(0xffffff);
+    sprite_loader::render2d(framebuffer, maze, scale, player, true);
 }
 
-fn render_2d_player(framebuffer: &mut Framebuffer, player: &Player, block_size: usize) {
-    let player_size = block_size ; // Tamaño del jugador (puede ser ajustado)
-    let player_x = player.pos.x as usize;
-    let player_y = player.pos.y as usize;
 
-    for y in player_y..(player_y + player_size) {
-        for x in player_x..(player_x + player_size) {
-            framebuffer.point(x, y, 0xFFFFA500);
-        }
-    }
-}
+fn playing(screen: &mut usize){
+    let goal_name = "./src/sprites/prizes/sandwich.bmp";
+    let maze_name = "./src/mazes/maze1.txt";
 
-fn render2d(framebuffer: &mut Framebuffer, player: &Player, maze: &Vec<Vec<char>>, block_size: usize) {
-    // for de dos dimensiones
-    for row in 0..maze.len(){
-        for col in 0..maze[row].len(){
-            drawcell(framebuffer, col * block_size,row * block_size , block_size, maze[row][col]);
-        }
-    }
+    let maze = load_maze(maze_name);
+    let mut goal = Goal::new(
+        Vec2::new(0.0, 0.0),
+        sprite_loader::Sprite::new(goal_name));
+    let numbers = load_maze("./src/mazes/numbers.txt");
 
-    render_2d_player(framebuffer, player, block_size / 10);
+    let window_width = 600;
+    let window_height = 600;
+    
+    let block_size = 600/maze.len();
 
-    let num_rayos = 5; 
-    for i in 0..num_rayos{ 
-        let current_ray = i as f32 / num_rayos as f32; 
-        let a = player.a - (player.fov / 2.0) + (player.fov * current_ray); 
-        cast_ray(framebuffer, &maze, player, a, block_size, true);
-    }
-}
-
-fn render3d(framebuffer: &mut Framebuffer, player: &Player, maze: &Vec<Vec<char>>, block_size: usize){
-    let num_rayos = framebuffer.width; 
-
-    let hh = framebuffer.height as f32/ 2.0;
-
-    for i in 0..num_rayos{ 
-        let current_ray = i as f32 / num_rayos as f32; 
-        let a = player.a - (player.fov / 2.0) + (player.fov * current_ray); 
-        let intersect = cast_ray(framebuffer, &maze, player, a, block_size, false);
-
-        let stake_heigth = (framebuffer.height as f32 / intersect.distance) * 60.0; 
-        let stake_top = (hh - (stake_heigth / 2.0 )) as usize;
-        let stake_bottom = (hh + (stake_heigth / 2.0 )) as usize;
-
-        let tx = (intersect.tx as f32 / block_size as f32 * WALL1.width as f32) as u32;
-        let texture_height = WALL1.height as f32;
-        let texture_width = WALL1.width as f32;
-
-        for y in stake_top..stake_bottom{
-            let ty = ((y as f32 - (hh - (stake_heigth / 2.0))) / stake_heigth * texture_height) as u32;
-            let color = cell_to_texture_color(intersect.impact, tx, ty);
-            framebuffer.point(i, y, color);
-        }
-    }
-
-}
-
-fn main() {
-    // Cargar el mapa
-    let maze = load_maze("./map.txt");
-
-    // Definir un block_size fijo
-    let block_size = 40;
-
-    // Calcular las dimensiones del framebuffer basadas en el tamaño del mapa y el block_size
-    let framebuffer_width = maze[0].len() * block_size;
-    let framebuffer_height = maze.len() * block_size;
-
-    let frame_delay = Duration::from_millis(1);
+    let framebuffer_width = 600;
+    let framebuffer_height = 600;
 
     let mut framebuffer = framebuffer::Framebuffer::new(framebuffer_width, framebuffer_height);
+
+    let mut player = Player::new(block_size);
+    let frame_delay = Duration::from_millis(0);
+
+    sprite_loader::init_maze(&mut framebuffer, &maze, block_size, &mut player, &mut goal);
+
     let mut window = Window::new(
-        "Maze Game",
-        framebuffer_width,
-        framebuffer_height,
+        "Space Sandwich Eaters",
+        window_width,
+        window_height,
         WindowOptions::default(),
-    ).unwrap();
-
-    // Oculta el cursor
-    window.set_cursor_visibility(false);
-
-    let mut player1 = Player{
-        pos: Vec2::new(100.0, 100.0),
-        a: PI/3.0,
-        fov: PI/3.0, 
-        prev_mouse_x: None,
-    };
+    )
+    .unwrap();
 
     let mut mode = "3D";
-    
     let mut last_time = Instant::now();
-    let mut frame_count = 0;
-
-
-    while window.is_open() {
-
-        let current_time = Instant::now();
-        let duration = current_time.duration_since(last_time);
-
-        // Centra el cursor
-        let (window_width, window_height) = window.get_size();
-
+    let mut last_input = Instant::now();
+    let mut fps_counter = 0;
+    let mut fps_last = 10;
+    let wall_1 = sprite_loader::Sprite::new("./src/sprites/walls/wallTile1.bmp");
+    let wall_2 = sprite_loader::Sprite::new("./src/sprites/walls/wallTile2.bmp");
+    let wall_3 = sprite_loader::Sprite::new("./src/sprites/walls/wallTile3.bmp");
+    let sprites = [&wall_1, &wall_2, &wall_3];
+    while window.is_open(){
+        
         if window.is_key_down(Key::Escape) {
             break;
         }
 
-        if window.is_key_down(Key::M){
-            mode = if mode == "2D" {"3D"} else {"2D"};
+        if window.is_key_pressed(Key::M, minifb::KeyRepeat::No){
+            mode = if mode == "2D" {"3D"} else {"2D"}
         }
 
-        if mode == "3D" {
-            // Movimiento del personaje
-            procces(&mut window, &mut player1, &maze, block_size);
+        if mode == "2D"{ 
+            draw_player_view(&mut framebuffer, &maze, &mut player, block_size,block_size, &mut goal);
+        } else {
+            sprite_loader::render3d(&mut framebuffer, &maze, &mut player, block_size, &sprites, &mut goal);
+            draw_minimap(&mut framebuffer, &maze, &mut player, block_size,5);
+
+            if last_input.elapsed() >= Duration::from_millis(16) {
+                let intersect_f = cast_ray(&mut framebuffer, &maze, &player, player.a, block_size, false, &goal);
+                let intersect_b = cast_ray(&mut framebuffer, &maze, &player, player.a + PI, block_size, false, &goal);
+                let intersect_l = cast_ray(&mut framebuffer, &maze, &player, player.a - PI / 2.0, block_size, false, &goal);
+                let intersect_r = cast_ray(&mut framebuffer, &maze, &player, player.a + PI / 2.0, block_size, false, &goal);
+                
+                let mut wall_f = false;
+                if intersect_f.distance < 8.0{
+                    wall_f = true;
+                }
+                let mut wall_b = false;
+                if intersect_b.distance < 8.0{
+                    wall_b = true;
+                }
+                let mut wall_l = false;
+                if intersect_l.distance < 8.0{
+                    wall_l = true;
+                }
+                let mut wall_r = false;
+                if intersect_r.distance < 8.0{
+                    wall_r = true;
+                }
+                process_event(&mut player, &window, wall_f, wall_b, wall_l, wall_r);
+                last_input = Instant::now();
+            }
         }
 
-        framebuffer.clear();
+        if player.win_condition{
+            *screen= 3;
+            break;
+        }
 
-        // Renderiza el juego
-        if mode == "2D"{
-            render2d(&mut framebuffer, &mut player1, &maze, block_size);
-        }
-        else{
-            render3d(&mut framebuffer, &mut player1, &maze, block_size);
-             
-        }
-            
-        frame_count += 1;
-        
-        // Calcular y mostrar FPS cada segundo
-        if duration >= Duration::from_secs(1) {
-            let fps = frame_count as f64 / duration.as_secs_f64();
-            println!("FPS: {}", fps);
-            frame_count = 0;
+        fps_counter += 1;
+        if last_time.elapsed() >= Duration::from_secs(1) {
+            fps_last = fps_counter;
+            fps_counter = 0;
             last_time = Instant::now();
         }
+        fps::render_fps(&mut framebuffer, &numbers, fps_last);
+
 
         window
-            .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
+            .update_with_buffer(
+                &framebuffer.color_array_to_u32(),
+                framebuffer_width,
+                framebuffer_height,
+            )
             .unwrap();
-
         std::thread::sleep(frame_delay);
     }
+}
 
-    
+fn main() {
+    let mut screen: usize = 0;
 
+    sprite_loader::pre_play(&mut screen);
+    if screen!=0{
+        playing(&mut screen);
+    }
+    if screen==3{
+        sprite_loader::post_play();
+    }
 }
