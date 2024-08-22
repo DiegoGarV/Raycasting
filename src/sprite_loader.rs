@@ -8,6 +8,7 @@ use crate::framebuffer::Framebuffer;
 use crate::player::Player;
 use crate::Goal;
 use crate::ray_caster::cast_ray;
+use crate::audio::AudioPlayer;
 
 pub struct Sprite{
     pub buffer: Vec<Color>,
@@ -276,6 +277,7 @@ pub fn pre_play(screen: &mut usize) {
     let framebuffer_width = 600;
     let framebuffer_height = 600;
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
+
     let mut window = Window::new(
         "Space Sandwich Eaters",
         window_width,
@@ -319,6 +321,8 @@ pub fn post_play() {
     let framebuffer_width = 600;
     let framebuffer_height = 600;
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
+    let audio_player = AudioPlayer::new("./src/audios/victory.mp3");
+
     Sprite::render_screen(&mut framebuffer, &part1);
     let mut window = Window::new(
         "Space Sandwich Eaters",
@@ -327,6 +331,8 @@ pub fn post_play() {
         WindowOptions::default(),
     )
     .unwrap();
+
+    audio_player.play();
 
     while window.is_open() {
         if window.is_key_down(Key::Escape) | window.is_key_down(Key::Enter){
@@ -341,7 +347,7 @@ pub fn post_play() {
             Sprite::render_screen(&mut framebuffer, &part3);         
         } else if animation_frame == 3 {
             Sprite::render_screen(&mut framebuffer, &part4); 
-            animation_frame = 0;        
+            animation_frame = -1;        
         }
         animation_frame += 1;
 
@@ -352,6 +358,6 @@ pub fn post_play() {
                 framebuffer_height,
             )
             .unwrap();
-        std::thread::sleep(Duration::from_millis(550));
+        std::thread::sleep(Duration::from_millis(250));
     }
 }
